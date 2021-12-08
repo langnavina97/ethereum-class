@@ -1,82 +1,87 @@
-pragma solidity ^0.4.17;
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.10;
 
 contract CampaignFactory {
     address[] public deployedCampaigns;
 
     function createCampaign(uint minimum) public {
-       address newCampaign = new Campaign(minimum, msg.sender);
-       deployedCampaigns.push(newCampaign);
+        address newCampaign = address(new Campaign(minimum, payable (msg.sender)));
+        deployedCampaigns.push(newCampaign);
     }
 
-    function getCampaigns() public view returns (address[]) {
+    function getDeployedCampaigns() public view returns (address[] memory) {
         return deployedCampaigns;
     }
 }
 
 contract Campaign {
-    // struct definition, does not create an instance of a request (type)
     struct Request {
         string description;
         uint value;
-        address recipient;
+        address payable recipient;
         bool complete;
+        uint approvalCount;
         mapping(address => bool) approvals;
-        uint approvalCount; // mapping has no iterator/length function
     }
 
-     address public manager;
-     uint public minimumContribtion;
-     mapping(address => bool) public approvers;
-     Request[] public requests;
-     uint public approversCount;
+    mapping (uint => Request) public requests;
+    uint public requestCount;
+    address public manager;
+    uint public minimumContribution;
+    mapping(address => bool) public approvers;
+    uint public approversCount;
 
-     modifier restricted() {
+    modifier restricted() {
         require(msg.sender == manager);
         _;
-     }
+    }
 
-
-     function Campaign(uint minimum, address creator) public {
+    constructor(uint minimum, address payable creator) {
         manager = creator;
-        minimumContribtion = minimum;
-     }
+        minimumContribution = minimum;
+    }
 
-     function contribute() public payable {
-         require(msg.value > minimumContribtion);
+    function contribute() public payable {
+        require(msg.value > minimumContribution);
 
-         approvers[msg.sender] = true;
-         approversCount++;
-     }
-    
-    function createRequest(string description, uint value, address recipient) public restricted {        
-        Request memory newRequest = Request({
-           description: description,
-           value: value,
-           recipient: recipient,
-           complete: false,
-           approvalCount: 0
-        });
+        // Keep track of number of contributors
+        if(!approvers[msg.sender]) {
+            approversCount++;
+        }
 
-        requests.push(newRequest);
+        approvers[msg.sender] = true;
+    }
+
+    function createRequest(string memory description, uint value, address payable recipient) public restricted {
+        // Ensure we can't ask for more money than the contract holds 
+        //require(value <= address(this).balance);
+
+        Request storage r = requests[requestCount];
+        r.description = description;
+        r.value = value;
+        r.recipient = recipient;
+        r.complete = false;
+        r.approvalCount = 0;
+
+        requestCount++;
     }
 
     function approveRequest(uint index) public {
         Request storage request = requests[index];
-        require(approvers[msg.sender]); // sender in approvers list
-        require(!request.approvals[msg.sender]); // sender already voted?
+
+        require(approvers[msg.sender]);
+        require(!request.approvals[msg.sender]);
 
         request.approvals[msg.sender] = true;
         request.approvalCount++;
-    } 
+    }
 
     function finalizeRequest(uint index) public restricted {
-        Request storage request = requests[index];
+        require(requests[index].approvalCount > (approversCount / 2));
+        require(!requests[index].complete);
 
-        require(!request.complete);
-
-        require(request.approvalCount > (approversCount / 2));
-
-        request.recipient.transfer(request.value);
-        request.complete = true;
+        requests[index].recipient.transfer(requests[index].value);
+        requests[index].complete = true;
     }
 }

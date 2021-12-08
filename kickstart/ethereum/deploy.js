@@ -13,13 +13,11 @@ const deploy = async () => {
 
   console.log("Attempting to deploy from account", accounts[0]);
 
-  const result = await new web3.eth.Contract(
-    JSON.parse(compiledFactory.interface)
-  )
-    .deploy({ data: compiledFactory.bytecode })
-    .send({ from: accounts[0], gas: "1000000" });
+  const result = await new web3.eth.Contract(compiledFactory.abi)
+    .deploy({ data: compiledFactory.evm.bytecode.object })
+    .send({ from: accounts[0], gas: "10000000" });
 
-  // 0xb3caBEF0D8D792496F2f18fDb380A08cCfb9411f
+  // 0x714a172980cE0FccFd6b6f068E34CE5C5609CE0b
   console.log("Contract deployed to", result.options.address);
   provider.engine.stop();
 };
