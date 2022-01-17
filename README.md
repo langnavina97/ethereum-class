@@ -1,5 +1,5 @@
 Ethereum and Solidity: The Complete Developer's Guide (Udemy)
 
-Lottery project
+- Lottery project
 
-Kickstarter project
+- Kickstarter project 
